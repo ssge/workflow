@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:biodi="http://bpmn.io/schema/dmn/biodi/2.0" id="ContinueDecision" name="DRD" namespace="http://camunda.org/schema/1.0/dmn" exporter="Camunda Modeler" exporterVersion="5.49.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0">
+  <decision id="Decision_0mepvum" name="Continue Decision ">
+    <decisionTable id="DecisionTable_15dgd4w" hitPolicy="FIRST">
+      <input id="Input_1" label="executionCount" biodi:width="192">
+        <inputExpression id="InputExpression_1" typeRef="number">
+          <text>executionCount</text>
+        </inputExpression>
+      </input>
+      <input id="Input_2" label="command">
+        <inputExpression id="LiteralExpression_108irnu" typeRef="string">
+          <text>command</text>
+        </inputExpression>
+      </input>
+      <input id="Input_3" label="text_command">
+        <inputExpression id="LiteralExpression_08mxu42" typeRef="string">
+          <text>text_command</text>
+        </inputExpression>
+      </input>
+      <output id="Output_1" name="decision" typeRef="string">
+        <outputValues id="UnaryTests_15adrr1">
+          <text>"break","loop"</text>
+        </outputValues>
+      </output>
+      <rule id="DecisionRule_1kzvc5s">
+        <inputEntry id="UnaryTests_1u69mgz">
+          <text>&gt;10</text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_12pa5af">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_1r039y1">
+          <text></text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_0oytffp">
+          <text>"break"</text>
+        </outputEntry>
+      </rule>
+      <rule id="DecisionRule_1952q1e">
+        <inputEntry id="UnaryTests_1840cbl">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_1sk9xjk">
+          <text>"terminate"</text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_0o6ww49">
+          <text></text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_12d1o6t">
+          <text>"break"</text>
+        </outputEntry>
+      </rule>
+      <rule id="DecisionRule_0h5aamy">
+        <inputEntry id="UnaryTests_098p1yz">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_115bdln">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_0d9ufv4">
+          <text>"terminate"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_0pgmc4k">
+          <text>"break"</text>
+        </outputEntry>
+      </rule>
+      <rule id="DecisionRule_0tqesx4">
+        <inputEntry id="UnaryTests_0lzys3p">
+          <text>&lt;3</text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_0266z43">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_0zuilkl">
+          <text></text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_087h79t">
+          <text>"loop"</text>
+        </outputEntry>
+      </rule>
+      <rule id="DecisionRule_0mlgtzw">
+        <inputEntry id="UnaryTests_1tpcorf">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_1y39g8x">
+          <text>"stop"</text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_02d9fah">
+          <text></text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_0i850ck">
+          <text>"break"</text>
+        </outputEntry>
+      </rule>
+      <rule id="DecisionRule_1rrtxky">
+        <inputEntry id="UnaryTests_18vj457">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_1ceq5rb">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_1pvd79u">
+          <text>"stop"</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_1qxadgq">
+          <text>"break"</text>
+        </outputEntry>
+      </rule>
+      <rule id="DecisionRule_1mx23g0">
+        <inputEntry id="UnaryTests_1g6blbv">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_0jt7ovs">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="UnaryTests_1u81wt5">
+          <text></text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_02narhd">
+          <text>"loop"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram>
+      <dmndi:DMNShape id="Decision_0mepvum_di" dmnElementRef="Decision_0mepvum">
+        <dc:Bounds height="80" width="180" x="160" y="121" />
+      </dmndi:DMNShape>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>

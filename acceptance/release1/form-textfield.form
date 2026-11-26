@@ -1,0 +1,76 @@
+{
+  "components": [
+    {
+      "text": "=\"Caller says: \" + input",
+      "type": "text",
+      "layout": {
+        "row": "Row_0etr9ah",
+        "columns": null
+      },
+      "id": "Field_1mpfgnn"
+    },
+    {
+      "text": "=\"Execution: \" + string(executionCount)",
+      "type": "text",
+      "layout": {
+        "row": "Row_0etr9ah",
+        "columns": null
+      },
+      "id": "Field_0b36nks"
+    },
+    {
+      "label": "Select",
+      "values": [
+        {
+          "label": "Continue",
+          "value": "continue"
+        },
+        {
+          "label": "Stop",
+          "value": "stop"
+        },
+        {
+          "label": "terminate",
+          "value": "terminate"
+        }
+      ],
+      "type": "select",
+      "layout": {
+        "row": "Row_0tmzh07",
+        "columns": null
+      },
+      "id": "Field_1u8gtqz",
+      "key": "command",
+      "defaultValue": "continue"
+    },
+    {
+      "label": "или пък команда",
+      "type": "textfield",
+      "layout": {
+        "row": "Row_1a4y7in",
+        "columns": null
+      },
+      "id": "Field_0sj8zfe",
+      "key": "text_command"
+    },
+    {
+      "label": "Done",
+      "action": "submit",
+      "type": "button",
+      "layout": {
+        "row": "Row_0rbh6hf",
+        "columns": 4
+      },
+      "id": "Field_00asub0"
+    }
+  ],
+  "type": "default",
+  "id": "Form_0w2uzn0",
+  "executionPlatform": "Camunda Cloud",
+  "executionPlatformVersion": "8.9.0",
+  "exporter": {
+    "name": "Camunda Modeler",
+    "version": "5.49.0"
+  },
+  "schemaVersion": 19
+}

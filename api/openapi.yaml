@@ -1,0 +1,550 @@
+openapi: 3.1.0
+info:
+  title: Workflow engine HTTP API
+  version: '1.0.0'
+  description: |
+    Release 1 only. Bodies are UTF-8 JSON. Reject duplicate object keys and
+    numbers outside the model profile, including inside variables. There is
+    no authentication or tenant header. Reads reflect committed state.
+servers:
+  - url: /v1
+security: []
+
+paths:
+  /deployments:
+    post:
+      operationId: deploy
+      summary: Submit one bundle for atomic publication
+      description: |
+        Each distinct successful command publishes a new version, even for
+        identical source. An invalid or unsupported model fails the operation
+        without changing the current definition.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [name, content]
+                    properties:
+                      name: {type: string, description: Logical filename within this bundle.}
+                      content: {type: string, description: Complete UTF-8 source; not a path or URL.}
+      responses:
+        '202': {$ref: '#/components/responses/Accepted'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '409': {$ref: '#/components/responses/KeyConflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+
+  /instances:
+    post:
+      operationId: startInstance
+      summary: Start an instance of the current definition
+      description: The instance pins the head at creation commit, not at admission. No head fails the operation with NOT_FOUND.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [processKey]
+              properties:
+                processKey: {$ref: '#/components/schemas/Id'}
+                variables:
+                  $ref: '#/components/schemas/Variables'
+                  default: {}
+            example: {processKey: Process_Collect_from_Form, variables: {input: hello}}
+      responses:
+        '202': {$ref: '#/components/responses/Accepted'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '409': {$ref: '#/components/responses/KeyConflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+
+  /tasks/{taskId}/complete:
+    post:
+      operationId: completeTask
+      summary: Submit input for one human-task activation
+      description: |
+        Invalid form input leaves the task open. A missing, closed or frozen
+        target fails the operation, not admission. Success does not mean the
+        process has ended.
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [fields]
+              properties:
+                fields:
+                  type: object
+                  description: Submit zero or more input keys. The saved form determines valid keys and values at execution.
+                  additionalProperties: {type: string}
+            example: {fields: {text_command: terminate}}
+      responses:
+        '202': {$ref: '#/components/responses/Accepted'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '409': {$ref: '#/components/responses/KeyConflict'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+
+  /operations/{id}:
+    get:
+      operationId: getOperation
+      summary: Read a command's receipt and eventual outcome
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {$ref: '#/components/schemas/Id'}
+      responses:
+        '200': {$ref: '#/components/responses/Operation'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+
+  /operations/by-key/{urlEncodedKey}:
+    get:
+      operationId: getOperationByKey
+      summary: Recover the same operation using the original idempotency key
+      parameters:
+        - name: urlEncodedKey
+          in: path
+          required: true
+          description: Percent-encode the key as one path segment. The schema applies to the decoded key.
+          schema: {$ref: '#/components/schemas/CommandKey'}
+      responses:
+        '200': {$ref: '#/components/responses/Operation'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+
+  /definitions/{processKey}/versions:
+    get:
+      operationId: listDefinitionVersions
+      summary: List immutable definitions for a process key in ascending version order
+      parameters:
+        - name: processKey
+          in: path
+          required: true
+          schema: {$ref: '#/components/schemas/Id'}
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page of definition versions and their current drain labels.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/DefinitionVersion'}
+                  nextCursor: {$ref: '#/components/schemas/NextCursor'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+
+  /instances/{instanceId}:
+    get:
+      operationId: getInstance
+      summary: Read an instance, including its pinned version and committed variables
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          schema: {$ref: '#/components/schemas/Id'}
+      responses:
+        '200':
+          description: Current instance state. Terminal instances remain readable.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Instance'}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+
+  /tasks:
+    get:
+      operationId: listTasks
+      summary: List human tasks by creation time and then task ID, ascending
+      parameters:
+        - name: instanceId
+          in: query
+          schema: {$ref: '#/components/schemas/Id'}
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TaskStatus'
+            default: OPEN
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page of matching task summaries.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/TaskSummary'}
+                  nextCursor: {$ref: '#/components/schemas/NextCursor'}
+              example: {items: [], nextCursor: null}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+
+  /tasks/{taskId}:
+    get:
+      operationId: getTask
+      summary: Read a human task and its saved, resolved form view
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: The view saved when this activation opened, even if the task has since closed.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Task'}
+              example:
+                taskId: t-9
+                instanceId: i-4
+                elementId: Activity_Review
+                version: 1
+                status: OPEN
+                createdAt: '2026-01-01T12:00:00Z'
+                dueAt: null
+                closedAt: null
+                reason: null
+                formId: Review
+                components:
+                  - {id: Message, type: text, text: 'Caller says: hello'}
+                  - {id: Command, type: textfield, label: Command, key: text_command, value: null}
+        '400': {$ref: '#/components/responses/InvalidRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Global across commands and transports. Reuse only for the same normalized request.
+      schema: {$ref: '#/components/schemas/CommandKey'}
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      description: ID of this activation's task, not its BPMN element.
+      schema: {$ref: '#/components/schemas/Id'}
+    Limit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 200, default: 50}
+    Cursor:
+      name: cursor
+      in: query
+      description: Continue strictly after the last key using the same filters. Not a snapshot.
+      schema: {type: string}
+
+  responses:
+    Accepted:
+      description: Durably accepted, not necessarily executed. An identical replay returns the same operation ID and current status.
+      headers:
+        Location:
+          required: true
+          description: Relative URI of the operation (/v1/operations/{operationId}).
+          schema: {type: string, format: uri-reference}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Receipt'}
+          examples:
+            accepted: {value: {operationId: op-7, status: PENDING}}
+            replay: {value: {operationId: op-7, status: SUCCEEDED}}
+    Operation:
+      description: Committed receipt. A failed command is a successful read; terminal outcomes are immutable.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Operation'}
+          examples:
+            pending: {value: {operationId: op-7, status: PENDING}}
+            deployed: {value: {operationId: op-6, status: SUCCEEDED, result: {processKey: Process_Collect_from_Form, version: 1}}}
+            started: {value: {operationId: op-7, status: SUCCEEDED, result: {instanceId: i-4, processKey: Process_Collect_from_Form, version: 1}}}
+            completedTask: {value: {operationId: op-8, status: SUCCEEDED, result: {taskId: t-9, instanceId: i-4, revision: 5}}}
+            invalidFields:
+              value:
+                operationId: op-9
+                status: FAILED
+                error:
+                  code: INVALID_FIELDS
+                  message: Invalid form submission.
+                  details:
+                    fields: [{key: command, reason: Not a listed select value.}]
+    InvalidRequest:
+      description: Malformed request, such as a missing key or a cursor that does not match the filters.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ErrorEnvelope'
+              - properties: {error: {properties: {code: {const: INVALID_REQUEST}}}}
+          example: {error: {code: INVALID_REQUEST, message: Invalid request.}}
+    NotFound:
+      description: The requested read target does not exist.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ErrorEnvelope'
+              - properties: {error: {properties: {code: {const: NOT_FOUND}}}}
+          example: {error: {code: NOT_FOUND, message: Unknown ID.}}
+    KeyConflict:
+      description: This key already identifies a different normalized command.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ErrorEnvelope'
+              - properties: {error: {properties: {code: {const: IDEMPOTENCY_CONFLICT}}}}
+          example: {error: {code: IDEMPOTENCY_CONFLICT, message: Key already used for another request.}}
+    Unavailable:
+      description: Admission or the read cannot be confirmed. Retry a command with the same key.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ErrorEnvelope'
+              - properties: {error: {properties: {code: {const: UNAVAILABLE}}}}
+          example: {error: {code: UNAVAILABLE, message: Store unavailable.}}
+
+  schemas:
+    Id:
+      type: string
+      minLength: 1
+    CommandKey:
+      type: string
+      minLength: 1
+      maxLength: 128
+      description: Printable non-space ASCII only.
+      not: {pattern: '[^!-~]'}
+    PositiveInteger: {type: integer, minimum: 1}
+    Timestamp: {type: string, format: date-time, pattern: 'Z$'}
+    NullableTimestamp:
+      oneOf:
+        - $ref: '#/components/schemas/Timestamp'
+        - {type: 'null'}
+    NextCursor: {type: [string, 'null']}
+    Variables:
+      type: object
+      additionalProperties: true
+      description: JSON values, including arrays, objects and explicit null; numeric limits follow the model profile.
+    Receipt:
+      type: object
+      additionalProperties: false
+      required: [operationId, status]
+      properties:
+        operationId: {$ref: '#/components/schemas/Id'}
+        status: {type: string, enum: [PENDING, SUCCEEDED, FAILED]}
+    Operation:
+      type: object
+      additionalProperties: false
+      required: [operationId, status]
+      properties:
+        operationId: {$ref: '#/components/schemas/Id'}
+        status: {type: string, enum: [PENDING, SUCCEEDED, FAILED]}
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/DeployResult'
+            - $ref: '#/components/schemas/StartResult'
+            - $ref: '#/components/schemas/CompleteTaskResult'
+        error: {$ref: '#/components/schemas/CommandFailure'}
+      oneOf:
+        - properties: {status: {const: PENDING}}
+          not: {anyOf: [{required: [result]}, {required: [error]}]}
+        - properties: {status: {const: SUCCEEDED}}
+          required: [result]
+          not: {required: [error]}
+        - properties: {status: {const: FAILED}}
+          required: [error]
+          not: {required: [result]}
+    DeployResult:
+      type: object
+      additionalProperties: false
+      required: [processKey, version]
+      properties:
+        processKey: {$ref: '#/components/schemas/Id'}
+        version: {$ref: '#/components/schemas/PositiveInteger'}
+    StartResult:
+      type: object
+      additionalProperties: false
+      required: [instanceId, processKey, version]
+      properties:
+        instanceId: {$ref: '#/components/schemas/Id'}
+        processKey: {$ref: '#/components/schemas/Id'}
+        version: {$ref: '#/components/schemas/PositiveInteger'}
+    CompleteTaskResult:
+      type: object
+      additionalProperties: false
+      required: [taskId, instanceId, revision]
+      properties:
+        taskId: {$ref: '#/components/schemas/Id'}
+        instanceId: {$ref: '#/components/schemas/Id'}
+        revision: {$ref: '#/components/schemas/PositiveInteger'}
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: {type: string}
+        message: {type: string}
+        details: {type: object}
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error: {$ref: '#/components/schemas/Error'}
+    CommandFailure:
+      properties:
+        code: {enum: [INVALID_MODEL, UNSUPPORTED_FEATURE, NOT_FOUND, TASK_NOT_OPEN, INSTANCE_IN_INCIDENT, INVALID_FIELDS]}
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - if: {properties: {code: {enum: [INVALID_MODEL, UNSUPPORTED_FEATURE]}}}
+          then:
+            properties:
+              details:
+                required: [diagnostics]
+                properties:
+                  diagnostics:
+                    type: array
+                    items:
+                      type: object
+                      required: [file, reason]
+                      properties:
+                        file: {type: string}
+                        elementId: {$ref: '#/components/schemas/Id'}
+                        field: {type: string}
+                        reason: {type: string}
+        - if: {properties: {code: {const: INVALID_FIELDS}}}
+          then:
+            properties:
+              details:
+                required: [fields]
+                properties:
+                  fields:
+                    type: array
+                    items:
+                      type: object
+                      required: [key, reason]
+                      properties:
+                        key: {type: string}
+                        reason: {type: string}
+    DefinitionVersion:
+      type: object
+      required: [processKey, version, label, createdAt]
+      properties:
+        processKey: {$ref: '#/components/schemas/Id'}
+        version: {$ref: '#/components/schemas/PositiveInteger'}
+        label: {type: string, enum: [CURRENT, DRAINING, DRAINED]}
+        createdAt: {$ref: '#/components/schemas/Timestamp'}
+    Instance:
+      type: object
+      required: [instanceId, processKey, version, status, revision, variables, createdAt, endedAt, incident]
+      properties:
+        instanceId: {$ref: '#/components/schemas/Id'}
+        processKey: {$ref: '#/components/schemas/Id'}
+        version: {$ref: '#/components/schemas/PositiveInteger'}
+        status: {type: string, enum: [RUNNING, INCIDENT, COMPLETED]}
+        revision: {$ref: '#/components/schemas/PositiveInteger'}
+        variables: {$ref: '#/components/schemas/Variables'}
+        createdAt: {$ref: '#/components/schemas/Timestamp'}
+        endedAt: {$ref: '#/components/schemas/NullableTimestamp'}
+        incident:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [code, elementId, message]
+              properties:
+                code: {type: string}
+                elementId: {$ref: '#/components/schemas/Id'}
+                message: {type: string}
+    TaskStatus: {type: string, enum: [OPEN, COMPLETED, CANCELLED]}
+    TaskSummary:
+      type: object
+      required: [taskId, instanceId, elementId, version, status, createdAt, dueAt]
+      properties:
+        taskId: {$ref: '#/components/schemas/Id'}
+        instanceId: {$ref: '#/components/schemas/Id'}
+        elementId: {$ref: '#/components/schemas/Id'}
+        version: {$ref: '#/components/schemas/PositiveInteger'}
+        status: {$ref: '#/components/schemas/TaskStatus'}
+        createdAt: {$ref: '#/components/schemas/Timestamp'}
+        dueAt: {$ref: '#/components/schemas/NullableTimestamp'}
+    Task:
+      allOf:
+        - $ref: '#/components/schemas/TaskSummary'
+        - type: object
+          required: [formId, components, closedAt, reason]
+          properties:
+            formId: {$ref: '#/components/schemas/Id'}
+            components:
+              type: array
+              items: {$ref: '#/components/schemas/FormComponent'}
+            closedAt: {$ref: '#/components/schemas/NullableTimestamp'}
+            reason: {enum: [TIMER, null]}
+    FormComponent:
+      type: object
+      required: [type]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        label: {type: string}
+        layout:
+          type: object
+          properties:
+            row: {type: string}
+            columns: {type: [integer, 'null']}
+      oneOf:
+        - required: [text]
+          properties:
+            type: {const: text}
+            text: {type: string, description: Resolved display text rather than FEEL source.}
+        - required: [key, value, values]
+          properties:
+            type: {const: select}
+            key: {$ref: '#/components/schemas/Id'}
+            value: {type: [string, 'null']}
+            values:
+              type: array
+              items:
+                type: object
+                required: [label, value]
+                properties:
+                  label: {type: string}
+                  value: {type: string}
+        - required: [key, value]
+          properties:
+            type: {const: textfield}
+            key: {$ref: '#/components/schemas/Id'}
+            value: {type: [string, 'null']}
+        - required: [action]
+          properties:
+            type: {const: button}
+            action: {const: submit}

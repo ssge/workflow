@@ -1,0 +1,7 @@
+extends:
+  - spec
+rules:
+  no-invalid-media-type-examples:
+    severity: error
+    # Use the schema's additionalProperties rules, including across allOf branches.
+    allowAdditionalProperties: true

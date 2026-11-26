@@ -1,0 +1,22 @@
+name: R1 HTTP contract
+on:
+  pull_request:
+    paths: ['api/**', 'docs/interfaces.md', '.github/workflows/openapi.yml']
+  push:
+    paths: ['api/**', 'docs/interfaces.md', '.github/workflows/openapi.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate OpenAPI and its examples
+        env:
+          REDOCLY_TELEMETRY: 'off'
+        run: npx --yes @redocly/cli@2.14.0 lint --config api/redocly.yaml api/openapi.yaml

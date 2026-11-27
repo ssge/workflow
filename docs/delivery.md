@@ -107,6 +107,74 @@ Report last observed state, handles and timeout on failure.
   policies (fencing, replay via our key, late binding of reference-engine
   resources, resolved form view availability) are not shared guarantees.
 
+### Native end-to-end (e2e) tests
+
+Run `make e2e` from the repository root for the complete native matrix.
+It creates a disposable PostgreSQL cluster and temporary SQLite files, runs
+both schema gates and the Go suite (including the N/S integration cases) with
+race detection, and exercises P1-P6 over HTTP on **both** stores. The e2e
+test starts the actual workflow server and runners on OS-assigned loopback ports
+and shuts them down after the run. No external URLs, DSNs, or isolation flags
+are needed. Missing prerequisites or a failed check make the command fail.
+See [prerequisites](../README.md). Ordinary `go test ./...` does not start
+the live e2e suite.
+
+### Camunda reference comparison
+
+The independent Go C3 runner in `acceptance/release1` uses the same portable
+scenarios. To produce a native/Camunda comparison report for configured endpoints:
+
+```sh
+go run ./cmd/acceptance-release1
+```
+
+The built-in portable suite exercises P1-P6: fixture P1-P4 (both immediate-exit
+fields, stop-vs-loop, the maximum loop count, and the interrupting timer), plus
+generated parallel-join P5 and pinned-version P6 bundles. P5/P6 generate unique
+process keys at run time, use only the public `Driver` methods, and do not call
+native-only clock, pump or failpoint controls. Native S/N race suites can be
+registered through the same `Scenario` interface when their runtime gates are
+available.
+
+Set `WORKFLOW_NATIVE_URL` to the native service's HTTP base URL and
+`CAMUNDA8_REST_URL` to the Camunda 8 public REST API base URL (for example,
+`http://localhost:8080`, without `/operate` or `/v2`). A successful
+`POST /v2/deployments` returns one entry per deployed resource; the runner
+uses the `processDefinition` entry to select the process and version to start.
+After submitting a task, it waits until Camunda reports that task as completed
+before querying for the next activation. Variable search values are decoded
+from their serialized JSON so counts and strings keep their original types.
+The reference adapter uses Camunda's public REST v2 deployment,
+process-instance, user-task and variable-query APIs. For authenticated
+clusters, `CAMUNDA8_BEARER_TOKEN` supplies the bearer token; `CAMUNDA8_VERSION`
+labels the reported backend version. Polling and bounded timer waits can be
+configured with `CAMUNDA8_POLL_INTERVAL`, `CAMUNDA8_QUERY_TIMEOUT` and
+`CAMUNDA8_TIMER_WAIT` Go duration strings. The native version label is
+`WORKFLOW_NATIVE_VERSION`; its polling/query timeout and real-time timer lag use
+`WORKFLOW_NATIVE_POLL_INTERVAL`, `WORKFLOW_NATIVE_QUERY_TIMEOUT` and
+`WORKFLOW_NATIVE_QUERY_LAG`.
+
+Native P4 works without a control hook: `waitDeadline` waits until the task's
+public `dueAt` plus the configured query lag, bounded by the query timeout and
+caller context. It never submits the task to simulate timer expiry. A supplied
+`NativeControl` may still use virtual time and pump eligible work for native
+race tests.
+
+The included fixture has a fixed BPMN process key and is submitted byte-for-byte.
+Because deployment publishes a new version, the runner will not run it unless
+`WORKFLOW_NATIVE_ISOLATED=true` or `CAMUNDA8_ISOLATED=true` explicitly confirms
+the configured backend is isolated for this suite. Use a fresh native store or
+a fresh Camunda environment/cluster per run; do not point this comparison at a
+shared production deployment. Future generated-model scenarios must use a
+unique process key per run. With no endpoint configured the backend is reported
+as NOT RUN and no request is sent; setting a Camunda URL alone does not count as
+a reference comparison. The CLI exits nonzero if any capability is not PASS;
+UNSUPPORTED and NOT RUN are deliberately not green results. The JSON report
+records each backend/version, scenario, capability and status. Native-only
+tests can obtain the clock, pump and failpoint `NativeControl` separately from
+the public-API driver; the CLI does not expose those controls as production
+endpoints.
+
 ## R1 test catalog
 
 ### Portable scenarios: what a user can observe
@@ -147,6 +215,16 @@ For gates 1a/1b, run the applicable prefix of each named scenario; 1c requires
 controllable clock and barriers or failpoints at claim/commit, not probabilistic
 sleeps. For a timer-winning scenario, assert state **before** advancing time
 again so the loop's next timer cannot obscure a double advance.
+
+To run the native last-arrival recovery (N4) and incident restart/isolation
+(N6) checks, set `WORKFLOW_TEST_POSTGRES_DSN` to a test database where the
+suite can create its own schemas, then run:
+
+```sh
+go test -race -count=1 -v -run 'TestEngine/(sqlite|postgres)/(N4_last_arrival|N6_incident_isolation)' ./internal/engine
+```
+
+Without the DSN, only the file-backed SQLite cases run; PostgreSQL is skipped.
 
 ## Later work packages and release gates
 

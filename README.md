@@ -1,7 +1,19 @@
 # workflow
 
-Implementation specification for a durable, API-first workflow engine in Go.
-The R1 database schema and migrator use GORM; the engine itself is not yet runnable.
+A durable, API-first workflow engine in Go, with SQLite and PostgreSQL persistence.
+
+**Run all native end-to-end (e2e) and integration tests:**
+
+```sh
+make e2e
+```
+
+This runs the R1 HTTP scenarios against the workflow server on random loopback
+ports, plus the Go tests and schema checks, on disposable local databases. No
+running server, database URL, or Camunda installation is needed. Prerequisites:
+Make, Python 3, Go with CGO and a C compiler, and local PostgreSQL server and
+client tools (`pg_config`, `initdb`, `pg_ctl`, `psql`). Run as a non-root user
+so `initdb` can start. The timer scenario waits one real minute.
 
 | Read | Use it to answer |
 | --- | --- |

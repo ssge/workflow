@@ -1,5 +1,5 @@
-This repository contains specifications, model fixtures and executable database
-migrations, not a runnable engine.
+This repository contains the R1 specifications, model fixtures, versioned
+database migrations and Go workflow-engine implementation.
 
 # Implementing a work package
 

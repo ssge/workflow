@@ -88,13 +88,16 @@ protocol below; persist data before acknowledging it.
 | Work item | Kind, reference, ready time, claim owner/fence/expiry, state. Index by eligibility; successor creation is in the predecessor commit. At most one logical work item per cause (e.g. operation ID, ready token visit or timer ID). |
 | Incident | Instance, failed work/position, element, code, human-readable reason, revision. Retain enough input to retry the **transition**, not partially executed effects. |
 
-Startup configuration selects `database.driver` (`sqlite` or `postgres`) and
-`database.connection` (file path or PostgreSQL connection string). Initialize
-or validate the schema before accepting traffic; fail startup on an unknown
-driver, unavailable store or incompatible schema. Never silently fall back
-to an empty local store. All runners and services of one installation must
-point at the same database; SQLite means one shared local file, not one file
-per runner.
+Run the server with `go run ./cmd/workflow`. It reads
+`WORKFLOW_DATABASE_DRIVER` (`sqlite` or `postgres`) and
+`WORKFLOW_DATABASE_CONNECTION` (file path or PostgreSQL connection string).
+`WORKFLOW_HTTP_ADDRESS` defaults to `:8080`;
+`WORKFLOW_RUNNER_COUNT`, `WORKFLOW_RUNNER_LEASE` and `WORKFLOW_RUNNER_POLL`
+default to `1`, `30s` and `250ms`. Initialize or validate the schema before
+accepting traffic; fail startup on an unknown driver, unavailable store or
+incompatible schema. Never silently fall back to an empty local store. All
+runners and services of one installation must point at the same database;
+SQLite means one shared local file, not one file per runner.
 
 ## Execution protocol
 
